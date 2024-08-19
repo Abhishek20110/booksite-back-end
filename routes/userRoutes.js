@@ -3,13 +3,17 @@
 import express from 'express';
 import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
+import multer from 'multer';
 
 const router = express.Router();
+const upload = multer();
 
 // Registration route
-router.post('/register', async (req, res) => {
+router.post('/register', upload.none(), async (req, res) => {
     const { name, email, phone, password } = req.body;
-    console.log(req.body);
+
+
+
 
     try {
         // Check if user already exists
@@ -28,17 +32,20 @@ router.post('/register', async (req, res) => {
             data: newUser
         });
     } catch (error) {
-        console.error('Error creating user:', error);
+        // console.error('Error creating user:', error);
+        console.log(req.body);
         res.status(500).json({
             success: false,
             message: 'Error creating user. Please try again.',
             error: error.message
         });
+
+
     }
 });
 
 // Login route
-router.post('/login', async (req, res) => {
+router.post('/login', upload.none(), async (req, res) => {
     const { email, password } = req.body;
 
     try {
