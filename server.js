@@ -6,6 +6,7 @@ import userRoutes from './routes/userRoutes.js';
 import colors from 'colors';
 import action from './routes/userActionRoutes.js';
 import BookAction from './routes/BookRoutes.js';
+import bodyParser from 'body-parser';
 
 
 
@@ -14,6 +15,7 @@ db();
 
 
 const app = express();
+app.use(express.urlencoded({ extended: true }));
 
 // Middleware
 app.use(express.json());
