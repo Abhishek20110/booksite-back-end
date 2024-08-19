@@ -14,9 +14,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const action = express.Router();
+const uploadfm = multer();
+,
 
 // Update user
-action.put('/update', userAuth, async (req, res) => {
+action.put('/update',uploadfm.none(), userAuth, async (req, res) => {
     try {
         const { name, email, phone, zip } = req.body;
         const { userId } = req.user;
@@ -66,7 +68,7 @@ action.put('/update', userAuth, async (req, res) => {
 });
 
 // Update password
-action.put('/updatepass', userAuth, async (req, res) => {
+action.put('/updatepass',uploadfm.none(), userAuth, async (req, res) => {
     try {
         const { currentPassword, newPassword, conPassword } = req.body;
         const { userId } = req.user;
