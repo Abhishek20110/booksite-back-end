@@ -14,10 +14,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const action = express.Router();
-const upload = multer({ storage: storage });
 
 // Update user
-action.put('/update', upload.none(), userAuth, async (req, res) => {
+action.put('/update', userAuth, async (req, res) => {
     try {
         const { name, email, phone, zip } = req.body;
         const { userId } = req.user;
@@ -67,7 +66,7 @@ action.put('/update', upload.none(), userAuth, async (req, res) => {
 });
 
 // Update password
-action.put('/updatepass', upload.none(), userAuth, async (req, res) => {
+action.put('/updatepass', userAuth, async (req, res) => {
     try {
         const { currentPassword, newPassword, conPassword } = req.body;
         const { userId } = req.user;
@@ -127,7 +126,7 @@ const storage = multer.diskStorage({
     }
 });
 
-
+const upload = multer({ storage: storage });
 
 // Update profile picture
 action.put('/updatepic', userAuth, upload.single('profile_picture'), async (req, res) => {
