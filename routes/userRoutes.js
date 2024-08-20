@@ -31,7 +31,30 @@ router.post('/register', upload.none(), async (req, res) => {
             message: 'User created successfully!',
             data: newUser
         });
-    } catch (error) {
+    } 
+    catch (error) {
+        console.error('Error creating user:', error);
+
+        if (error.name === 'ValidationError') {
+           
+            const formattedErrors = {};
+            for (const field in error.errors) {
+                formattedErrors[field] = error.errors[field].message;
+            }
+            return res.status(400).json({
+                success: false,
+                errors: formattedErrors
+            });
+        }
+
+
+        res.status(500).json({
+            success: false,
+            message: 'Error creating user. Please try again.',
+            error: error.message
+        });
+    }
+    /* catch (error) {
         // console.error('Error creating user:', error);
         console.log(req.body);
         res.status(500).json({
@@ -41,7 +64,7 @@ router.post('/register', upload.none(), async (req, res) => {
         });
 
 
-    }
+    } */
 });
 
 // Login route
