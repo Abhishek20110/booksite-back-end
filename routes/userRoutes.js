@@ -91,6 +91,14 @@ router.post('/login', upload.none(), async (req, res) => {
             success: true,
             message: 'Login successful!',
             token,
+            user: {
+                id: user._id,
+                fullName: user.name, 
+                email: user.email,
+                phone: user.phone,
+                password: user.password
+                
+            },
             redirectTo: '/' // or any other route you want to redirect to
         });
     } catch (error) {
