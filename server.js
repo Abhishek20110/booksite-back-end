@@ -8,11 +8,8 @@ import action from './routes/userActionRoutes.js';
 import BookAction from './routes/BookRoutes.js';
 import bodyParser from 'body-parser';
 
-
-
 dotenv.config();
 db();
-
 
 const app = express();
 app.use(express.urlencoded({ extended: true }));
@@ -23,6 +20,10 @@ app.use(express.json());
 // Enable CORS for all routes (you can specify origins if needed)
 app.use(cors());
 
+// Root route to show a welcome message
+app.get('/', (req, res) => {
+    res.send('Welcome to the API!');
+});
 
 app.use('/api/v1/user', userRoutes);
 app.use('/api/v1/user/actions', action);
