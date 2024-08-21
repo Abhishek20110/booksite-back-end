@@ -209,6 +209,40 @@ BookAction.get('/mybooks', userAuth, seller, async (req, res) => {
         });
     }
 });
+//view all books
+BookAction.get('/books', async (req, res) => {
+    try {
+        // Optional: Apply filters, pagination, or sorting
+        const filters = { is_del: false }; // Only fetch books that are not deleted
+
+        // Find all books
+        const books = await Book.find(filters);
+
+        if (books.length === 0) {
+            return res.status(404).json({ message: 'No books found' });
+        }
+
+        // Find the total number of books
+        const totalBooks = await Book.countDocuments(filters);
+        console.log("Total books:", totalBooks);
+
+        res.status(200).json({
+            success: true,
+            message: 'Books fetched successfully!',
+            data: books,
+            totalBooks: totalBooks
+        });
+    } catch (error) {
+        console.error('Error fetching books:', error.message);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching books. Please try again.',
+            error: error.message
+        });
+    }
+});
+
+
 
 //Add Stock 
 
