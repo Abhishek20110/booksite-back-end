@@ -21,11 +21,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 // Enable CORS for all routes (you can specify origins if needed)
-app.use(cors({
-    origin: 'http://localhost:3000', // Replace with your React app's URL
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+app.use(cors());
+
 
 app.use('/api/v1/user', userRoutes);
 app.use('/api/v1/user/actions', action);
