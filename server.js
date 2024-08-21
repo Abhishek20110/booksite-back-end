@@ -22,7 +22,7 @@ app.use(cors());
 
 // Root route to show a welcome message
 app.get('/', (req, res) => {
-    res.send('Welcome to the API!');
+    res.send('Welcome to the back end');
 });
 
 app.use('/api/v1/user', userRoutes);
