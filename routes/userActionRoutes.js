@@ -9,6 +9,20 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import seller from '../middleware/sellerMiddleware.js';
 import Book from '../models/book.js';
+import { v2 as cloudinary } from 'cloudinary';
+import dotenv from 'dotenv';
+dotenv.config();
+
+
+
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -112,21 +126,7 @@ action.put('/updatepass', userAuth, async (req, res) => {
 });
 
 // Configure multer for file storage
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        const uploadPath = path.join(__dirname, '../uploads/profile_pictures');
-        // Create directory if it doesn't exist
-        fs.mkdirSync(uploadPath, { recursive: true });
-        cb(null, uploadPath);
-    },
-    filename: function (req, file, cb) {
-        // Generate a unique filename using userId and current timestamp
-        const uniqueSuffix = `${req.user.userId}-${Date.now()}${path.extname(file.originalname)}`;
-        cb(null, uniqueSuffix);
-    }
-});
 
-const upload = multer({ storage: storage });
 
 // Update profile picture
 action.put('/updatepic', userAuth, upload.single('profile_picture'), async (req, res) => {
@@ -143,32 +143,37 @@ action.put('/updatepic', userAuth, upload.single('profile_picture'), async (req,
             return res.status(400).json({ message: 'Profile picture is required' });
         }
 
-        // Generate the file path
-        const profilePicturePath = `${req.file.filename}`;
+        // Upload file to Cloudinary
+        const result = await cloudinary.uploader.upload_stream(
+            { folder: 'profile_pictures' },
+            async (error, result) => {
+                if (error) {
+                    return res.status(500).json({ message: 'Error uploading to Cloudinary', error });
+                }
 
-        // Find the user by ID
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
+                // Find the user by ID
+                const user = await User.findById(userId);
+                if (!user) {
+                    return res.status(404).json({ message: 'User not found' });
+                }
 
-        // Delete the old profile picture if it exists
-        if (user.profile_picture) {
-            const oldPath = path.join(__dirname, '../uploads/profile_pictures', user.profile_picture);
-            if (fs.existsSync(oldPath)) {
-                fs.unlinkSync(oldPath);
+                // Delete the old profile picture from Cloudinary
+                if (user.profile_picture) {
+                    await cloudinary.uploader.destroy(user.profile_picture);
+                }
+
+                // Update user profile picture path in the database
+                user.profile_picture = result.public_id;
+                await user.save();
+
+                res.status(200).json({
+                    success: true,
+                    message: 'Profile picture updated successfully!',
+                    data: user
+                });
             }
-        }
+        ).end(req.file.buffer);  // Use buffer instead of stream
 
-        // Update user profile picture path in the database
-        user.profile_picture = profilePicturePath;
-        await user.save();
-
-        res.status(200).json({
-            success: true,
-            message: 'Profile picture updated successfully!',
-            data: user
-        });
     } catch (error) {
         console.error('Error updating profile picture:', error.message);
         res.status(500).json({
@@ -178,7 +183,6 @@ action.put('/updatepic', userAuth, upload.single('profile_picture'), async (req,
         });
     }
 });
-
 //manage store information
 action.put('/updatestoreinfo', userAuth, seller, async (req, res) => {
     try {
