@@ -3,7 +3,6 @@ import User from '../models/User.js';
 import userAuth from '../middleware/authMiddleware.js';
 import multer from 'multer';
 import path from 'path';
-import nodemailer from 'nodemailer';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import seller from '../middleware/sellerMiddleware.js';
@@ -59,7 +58,7 @@ BookAction.post('/addbook', userAuth, seller, upload.single('book_image'), async
 
                 bookImageUrl = result.secure_url;
             } catch (error) {
-                return res.status(500).json({ message: 'Error uploading image to Cloudinary', error });
+                return res.status(500).json({ message: 'Error uploading image to Cloudinary', error: error.message });
             }
         }
 
@@ -203,7 +202,7 @@ BookAction.get('/mybooks', userAuth, seller, async (req, res) => {
         const { userId } = req.user;
 
         const books = await Book.find({ seller: userId, is_del: false });
-        if (!books) {
+        if (!books || books.length === 0) {
             return res.status(404).json({ message: 'No books found' });
         }
 
@@ -231,7 +230,7 @@ BookAction.get('/books', async (req, res) => {
         const filters = { is_del: false };
 
         const books = await Book.find(filters);
-        if (books.length === 0) {
+        if (!books || books.length === 0) {
             return res.status(404).json({ message: 'No books found' });
         }
 
