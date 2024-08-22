@@ -10,31 +10,26 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import seller from '../middleware/sellerMiddleware.js';
 import Book from '../models/book.js';
+import { v2 as cloudinary } from 'cloudinary';
+import dotenv from 'dotenv';
+dotenv.config();
 
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-
 const BookAction = express.Router();
 
-//multer for book
-const bookStorage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        const uploadPath = path.join(__dirname, '../uploads/book_images');
-        fs.mkdirSync(uploadPath, { recursive: true });
-        cb(null, uploadPath);
-    },
-    filename: function (req, file, cb) {
-        const uniqueSuffix = `${req.user.userId}-${Date.now()}${path.extname(file.originalname)}`;
-        cb(null, uniqueSuffix);
-    }
-});
-const bookUpload = multer({ storage: bookStorage });
-
-// Create a new book
-
-BookAction.post('/addbook', userAuth, seller, bookUpload.single('book_image'), async (req, res) => {
+//add new book
+BookAction.post('/addbook', userAuth, seller, upload.single('book_image'), async (req, res) => {
     try {
         const { isbn, title, publisher, language, category, author, search_tag, no_page, edition, stock, description, price } = req.body;
         const { userId } = req.user;
@@ -44,8 +39,15 @@ BookAction.post('/addbook', userAuth, seller, bookUpload.single('book_image'), a
             return res.status(400).json({ message: 'ISBN, title, author, and price are required' });
         }
 
-        // Handle book image
-        const bookImage = req.file ? req.file.filename : null;
+        let bookImageUrl = null;
+
+        // Handle book image upload to Cloudinary
+        if (req.file) {
+            const result = await cloudinary.uploader.upload(req.file.path, {
+                folder: 'book_images'
+            });
+            bookImageUrl = result.secure_url;
+        }
 
         // Create and save the book
         const book = new Book({
@@ -61,7 +63,7 @@ BookAction.post('/addbook', userAuth, seller, bookUpload.single('book_image'), a
             stock,
             description,
             price,
-            image: bookImage,
+            image: bookImageUrl,
             seller: userId
         });
 
@@ -81,8 +83,9 @@ BookAction.post('/addbook', userAuth, seller, bookUpload.single('book_image'), a
         });
     }
 });
-//edit the book
-BookAction.put('/editbook/:id', userAuth, seller, bookUpload.single('book_image'), async (req, res) => {
+
+// Edit the book
+BookAction.put('/editbook/:id', userAuth, seller, upload.single('book_image'), async (req, res) => {
     console.log('Received PUT request for book ID:', req.params.id);
     try {
         const bookId = req.params.id;
@@ -100,16 +103,19 @@ BookAction.put('/editbook/:id', userAuth, seller, bookUpload.single('book_image'
             return res.status(403).json({ message: 'You are not authorized to edit this book' });
         }
 
-        // Handle book image update
+        // Handle book image update with Cloudinary
         if (req.file) {
-            // Delete the old image if it exists
+            // Delete the old image from Cloudinary if it exists
             if (book.image) {
-                const oldImagePath = path.join(__dirname, '../uploads/book_images', book.image);
-                if (fs.existsSync(oldImagePath)) {
-                    fs.unlinkSync(oldImagePath);
-                }
+                const publicId = book.image.split('/').pop().split('.')[0];
+                await cloudinary.uploader.destroy(`book_images/${publicId}`);
             }
-            book.image = req.file.filename;
+
+            // Upload the new image to Cloudinary
+            const result = await cloudinary.uploader.upload(req.file.path, {
+                folder: 'book_images'
+            });
+            book.image = result.secure_url;
         }
 
         // Update the book fields if they are provided
@@ -142,6 +148,7 @@ BookAction.put('/editbook/:id', userAuth, seller, bookUpload.single('book_image'
         });
     }
 });
+
 
 //soft delete is_del = true
 
