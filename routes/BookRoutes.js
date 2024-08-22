@@ -46,7 +46,7 @@ BookAction.post('/addbook', userAuth, seller, upload.single('book_image'), async
 
         if (req.file) {
             const result = await cloudinary.uploader.upload_stream(
-                { folder: 'profile_pictures' },
+                { folder: 'book_images' },
                 (error, result) => {
                     if (error) {
                         return res.status(500).json({ message: 'Error uploading image to Cloudinary', error });
