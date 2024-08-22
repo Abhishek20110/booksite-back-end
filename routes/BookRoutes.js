@@ -28,7 +28,7 @@ const __dirname = dirname(__filename);
 
 const BookAction = express.Router();
 
-//add new book
+// Add a new book
 BookAction.post('/addbook', userAuth, seller, upload.single('book_image'), async (req, res) => {
     try {
         const { isbn, title, publisher, language, category, author, search_tag, no_page, edition, stock, description, price } = req.body;
@@ -43,10 +43,15 @@ BookAction.post('/addbook', userAuth, seller, upload.single('book_image'), async
 
         // Handle book image upload to Cloudinary
         if (req.file) {
-            const result = await cloudinary.uploader.upload(req.file.path, {
-                folder: 'book_images'
-            });
-            bookImageUrl = result.secure_url;
+            const result = await cloudinary.uploader.upload_stream(
+                { folder: 'book_images' },
+                (error, result) => {
+                    if (error) {
+                        return res.status(500).json({ message: 'Error uploading image to Cloudinary', error });
+                    }
+                    bookImageUrl = result.secure_url;
+                }
+            ).end(req.file.buffer);
         }
 
         // Create and save the book
