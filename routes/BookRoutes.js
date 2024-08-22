@@ -49,7 +49,7 @@ BookAction.post('/addbook', userAuth, seller, upload.single('book_image'), async
                     if (error) {
                         return res.status(500).json({ message: 'Error uploading image to Cloudinary', error });
                     }
-                    bookImageUrl = result.secure_url;
+                    bookImageUrl = result.public_id;
                 }
             ).end(req.file.buffer);
         }
