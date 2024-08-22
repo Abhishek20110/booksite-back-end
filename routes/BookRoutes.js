@@ -13,6 +13,8 @@ import Book from '../models/book.js';
 import { v2 as cloudinary } from 'cloudinary';
 import dotenv from 'dotenv';
 dotenv.config();
+
+// Debugging: Check if environment variables are loaded
 console.log("Cloudinary Name:", process.env.CLOUDINARY_NAME);
 console.log("Cloudinary API Key:", process.env.CLOUDINARY_API_KEY);
 console.log("Cloudinary API Secret:", process.env.CLOUDINARY_API_SECRET);
@@ -31,20 +33,17 @@ const __dirname = dirname(__filename);
 
 const BookAction = express.Router();
 
-// Add a new book
 BookAction.post('/addbook', userAuth, seller, upload.single('book_image'), async (req, res) => {
     try {
         const { isbn, title, publisher, language, category, author, search_tag, no_page, edition, stock, description, price } = req.body;
         const { userId } = req.user;
 
-        // Validate required fields
         if (!isbn || !title || !author || !price) {
             return res.status(400).json({ message: 'ISBN, title, author, and price are required' });
         }
 
         let bookImageUrl = null;
 
-        // Handle book image upload to Cloudinary
         if (req.file) {
             const result = await cloudinary.uploader.upload_stream(
                 { folder: 'book_images' },
@@ -52,12 +51,11 @@ BookAction.post('/addbook', userAuth, seller, upload.single('book_image'), async
                     if (error) {
                         return res.status(500).json({ message: 'Error uploading image to Cloudinary', error });
                     }
-                    bookImageUrl = result.public_id;
+                    bookImageUrl = result.secure_url;
                 }
             ).end(req.file.buffer);
         }
 
-        // Create and save the book
         const book = new Book({
             isbn,
             title,
