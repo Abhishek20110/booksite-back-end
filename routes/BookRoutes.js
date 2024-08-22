@@ -19,9 +19,9 @@ console.log("Cloudinary API Key:", process.env.CLOUDINARY_API_KEY);
 console.log("Cloudinary API Secret:", process.env.CLOUDINARY_API_SECRET);
 
 cloudinary.config({
-    cloud_name: dmdsoq8cj,
-    api_key: 721827173526227,
-    api_secret: UHHAcuPqwClXMvp9A6-xwKGmuuE
+    cloud_name: process.env.CLOUDINARY_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
 const storage = multer.memoryStorage();
@@ -50,10 +50,7 @@ BookAction.post('/addbook', userAuth, seller, upload.single('book_image'), async
                     const uploadStream = cloudinary.uploader.upload_stream(
                         { folder: 'book_images' },
                         (error, result) => {
-                            if (error) {
-                                console.error('Cloudinary upload error:', error);
-                                return reject(error);
-                            }
+                            if (error) return reject(error);
                             resolve(result);
                         }
                     );
@@ -62,7 +59,7 @@ BookAction.post('/addbook', userAuth, seller, upload.single('book_image'), async
 
                 bookImageUrl = result.secure_url;
             } catch (error) {
-                return res.status(500).json({ message: 'Error uploading image to Cloudinary', error: error.message });
+                return res.status(500).json({ message: 'Error uploading image to Cloudinary', error });
             }
         }
 
@@ -99,7 +96,6 @@ BookAction.post('/addbook', userAuth, seller, upload.single('book_image'), async
         });
     }
 });
-
 
 // Edit an existing book
 BookAction.put('/editbook/:id', userAuth, seller, upload.single('book_image'), async (req, res) => {
