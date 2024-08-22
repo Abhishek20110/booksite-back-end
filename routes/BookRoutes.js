@@ -21,7 +21,7 @@ console.log("Cloudinary API Secret:", process.env.CLOUDINARY_API_SECRET);
 cloudinary.config({
     cloud_name: dmdsoq8cj,
     api_key: 721827173526227,
-    api_secret: UHHAcuPqwClXMvp9A6-xwKGmuuE,
+    api_secret: UHHAcuPqwClXMvp9A6-xwKGmuuE
 });
 
 const storage = multer.memoryStorage();
