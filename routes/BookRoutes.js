@@ -3,15 +3,14 @@ import User from '../models/User.js';
 import userAuth from '../middleware/authMiddleware.js';
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs';
 import nodemailer from 'nodemailer';
-
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import seller from '../middleware/sellerMiddleware.js';
 import Book from '../models/book.js';
 import { v2 as cloudinary } from 'cloudinary';
 import dotenv from 'dotenv';
+
 dotenv.config();
 
 // Debugging: Check if environment variables are loaded
@@ -33,6 +32,7 @@ const __dirname = dirname(__filename);
 
 const BookAction = express.Router();
 
+// Add a new book
 BookAction.post('/addbook', userAuth, seller, upload.single('book_image'), async (req, res) => {
     try {
         const { isbn, title, publisher, language, category, author, search_tag, no_page, edition, stock, description, price } = req.body;
@@ -45,15 +45,22 @@ BookAction.post('/addbook', userAuth, seller, upload.single('book_image'), async
         let bookImageUrl = null;
 
         if (req.file) {
-            const result = await cloudinary.uploader.upload_stream(
-                { folder: 'book_images' },
-                (error, result) => {
-                    if (error) {
-                        return res.status(500).json({ message: 'Error uploading image to Cloudinary', error });
-                    }
-                    bookImageUrl = result.secure_url;
-                }
-            ).end(req.file.buffer);
+            try {
+                const result = await new Promise((resolve, reject) => {
+                    const uploadStream = cloudinary.uploader.upload_stream(
+                        { folder: 'book_images' },
+                        (error, result) => {
+                            if (error) return reject(error);
+                            resolve(result);
+                        }
+                    );
+                    uploadStream.end(req.file.buffer);
+                });
+
+                bookImageUrl = result.secure_url;
+            } catch (error) {
+                return res.status(500).json({ message: 'Error uploading image to Cloudinary', error });
+            }
         }
 
         const book = new Book({
@@ -90,7 +97,7 @@ BookAction.post('/addbook', userAuth, seller, upload.single('book_image'), async
     }
 });
 
-// Edit the book
+// Edit an existing book
 BookAction.put('/editbook/:id', userAuth, seller, upload.single('book_image'), async (req, res) => {
     console.log('Received PUT request for book ID:', req.params.id);
     try {
@@ -98,45 +105,49 @@ BookAction.put('/editbook/:id', userAuth, seller, upload.single('book_image'), a
         const { isbn, title, publisher, language, category, author, search_tag, no_page, edition, stock, description, price } = req.body;
         const { userId } = req.user;
 
-        // Find the book by ID
         const book = await Book.findById(bookId);
         if (!book) {
             return res.status(404).json({ message: 'Book not found' });
         }
 
-        // Check if the current user is the seller of the book
         if (book.seller.toString() !== userId) {
             return res.status(403).json({ message: 'You are not authorized to edit this book' });
         }
 
-        // Handle book image update with Cloudinary
         if (req.file) {
-            // Delete the old image from Cloudinary if it exists
             if (book.image) {
-                const publicId = book.image.split('/').pop().split('.')[0];
+                const publicId = path.basename(book.image, path.extname(book.image));
                 await cloudinary.uploader.destroy(`book_images/${publicId}`);
             }
 
-            // Upload the new image to Cloudinary
-            const result = await cloudinary.uploader.upload(req.file.path, {
-                folder: 'book_images'
+            const result = await new Promise((resolve, reject) => {
+                const uploadStream = cloudinary.uploader.upload_stream(
+                    { folder: 'book_images' },
+                    (error, result) => {
+                        if (error) return reject(error);
+                        resolve(result);
+                    }
+                );
+                uploadStream.end(req.file.buffer);
             });
+
             book.image = result.secure_url;
         }
 
-        // Update the book fields if they are provided
-        if (isbn) book.isbn = isbn;
-        if (title) book.title = title;
-        if (publisher) book.publisher = publisher;
-        if (language) book.language = language;
-        if (category) book.category = category;
-        if (author) book.author = author;
-        if (search_tag) book.search_tag = search_tag;
-        if (no_page) book.no_page = no_page;
-        if (edition) book.edition = edition;
-        if (stock) book.stock = stock;
-        if (description) book.description = description;
-        if (price) book.price = price;
+        Object.assign(book, {
+            isbn: isbn || book.isbn,
+            title: title || book.title,
+            publisher: publisher || book.publisher,
+            language: language || book.language,
+            category: category || book.category,
+            author: author || book.author,
+            search_tag: search_tag || book.search_tag,
+            no_page: no_page || book.no_page,
+            edition: edition || book.edition,
+            stock: stock || book.stock,
+            description: description || book.description,
+            price: price || book.price,
+        });
 
         await book.save();
 
@@ -155,34 +166,28 @@ BookAction.put('/editbook/:id', userAuth, seller, upload.single('book_image'), a
     }
 });
 
-
-//soft delete is_del = true
-
+// Soft delete a book
 BookAction.delete('/deletebook/:id', userAuth, seller, async (req, res) => {
     console.log('Received DELETE request for book ID:', req.params.id);
     try {
         const bookId = req.params.id;
 
-        // Find the book by ID
         const book = await Book.findById(bookId);
         if (!book) {
             return res.status(404).json({ message: 'Book not found' });
         }
 
-        // Check if the current user is the seller of the book
         if (book.seller.toString() !== req.user.userId) {
             return res.status(403).json({ message: 'You are not authorized to delete this book' });
         }
 
-        // Soft delete the book
         book.is_del = true;
         await book.save();
         res.status(200).json({
             success: true,
             message: 'Book deleted successfully!'
         });
-    }
-    catch (error) {
+    } catch (error) {
         console.error('Error deleting book:', error.message);
         res.status(500).json({
             success: false,
@@ -192,21 +197,18 @@ BookAction.delete('/deletebook/:id', userAuth, seller, async (req, res) => {
     }
 });
 
-//View all books uploaded by this seller
-
+// View all books uploaded by the seller
 BookAction.get('/mybooks', userAuth, seller, async (req, res) => {
     try {
         const { userId } = req.user;
 
-        // Find all books uploaded by the current user
         const books = await Book.find({ seller: userId, is_del: false });
         if (!books) {
             return res.status(404).json({ message: 'No books found' });
         }
-        //find no of total books
+
         const totalBooks = await Book.countDocuments({ seller: userId, is_del: false });
         console.log("Total books:", totalBooks);
-
 
         res.status(200).json({
             success: true,
@@ -222,20 +224,17 @@ BookAction.get('/mybooks', userAuth, seller, async (req, res) => {
         });
     }
 });
-//view all books
+
+// View all books
 BookAction.get('/books', async (req, res) => {
     try {
-        // Optional: Apply filters, pagination, or sorting
-        const filters = { is_del: false }; // Only fetch books that are not deleted
+        const filters = { is_del: false };
 
-        // Find all books
         const books = await Book.find(filters);
-
         if (books.length === 0) {
             return res.status(404).json({ message: 'No books found' });
         }
 
-        // Find the total number of books
         const totalBooks = await Book.countDocuments(filters);
         console.log("Total books:", totalBooks);
 
@@ -255,49 +254,35 @@ BookAction.get('/books', async (req, res) => {
     }
 });
 
-
-
-//Add Stock 
-
+// Add stock to a book
 BookAction.put('/addstock/:id', userAuth, seller, async (req, res) => {
     console.log('Received PUT request for book ID:', req.params.id);
     try {
         const bookId = req.params.id;
         const { stock } = req.body;
-        //check if stock is given
+
         if (!stock) {
             return res.status(400).json({ message: 'Stock is required' });
         }
 
-
-        if (stock) {
-            console.log("Stock to add:", stock);
-
-
-            // Find the book by ID
-            const book = await Book.findById(bookId);
-            if (!book) {
-                return res.status(404).json({ message: 'Book not found' });
-            }
-
-            // Check if the current user is the seller of the book
-            if (book.seller.toString() !== req.user.userId) {
-                return res.status(403).json({ message: 'You are not authorized to add stock to this book' });
-            }
-
-            // Add stock to the book
-            book.stock += stock;
-
-            await book.save();
-            res.status(200).json({
-                success: true,
-                message: 'Stock added successfully!',
-                data: book
-            });
+        const book = await Book.findById(bookId);
+        if (!book) {
+            return res.status(404).json({ message: 'Book not found' });
         }
 
-    }
-    catch (error) {
+        if (book.seller.toString() !== req.user.userId) {
+            return res.status(403).json({ message: 'You are not authorized to add stock to this book' });
+        }
+
+        book.stock += parseInt(stock, 10);
+
+        await book.save();
+        res.status(200).json({
+            success: true,
+            message: 'Stock added successfully!',
+            data: book
+        });
+    } catch (error) {
         console.error('Error adding stock:', error.message);
         res.status(500).json({
             success: false,
@@ -306,71 +291,5 @@ BookAction.put('/addstock/:id', userAuth, seller, async (req, res) => {
         });
     }
 });
-// send mail to user
-/* BookAction.get('/sendmail', userAuth, async (req, res) => {
-    console.log('Received GET request for sending mail');
-    try {
-        const { userId } = req.user;
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-        // Send email to user
-        const transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST,
-            port: process.env.SMTP_PORT,
-            auth: {
-                user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASSWORD
-            }
-        });
-
-        const mailOptions = {
-            from: process.env.SMTP_USER,
-            to: user.email,
-            subject: 'mail test',
-            text: ""
-        };
-
-        transporter.sendMail(mailOptions, (error, info) => {
-            if (error) {
-                console.error('Error sending mail:', error);
-                return res.status(500).json({
-                    success: false,
-                    message: 'Error sending mail. Please try again.',
-                    error: error.message
-                });
-            }
-            console.log('Email sent: ', info.response);
-            res.status(200).json({
-                success: true,
-                message: 'Email sent successfully!'
-            });
-        });
-
-
-    }
-    catch (error) {
-        console.error('Error sending mail:', error.message);
-        res.status(500).json({
-            success: false,
-            message: 'Error sending mail. Please try again.',
-            error: error.message
-        });
-    }
-
-
-
-
-
-
-});
- */
-
-
-
 
 export default BookAction;
-
-
-
