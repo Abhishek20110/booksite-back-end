@@ -13,6 +13,9 @@ import Book from '../models/book.js';
 import { v2 as cloudinary } from 'cloudinary';
 import dotenv from 'dotenv';
 dotenv.config();
+console.log("Cloudinary Name:", process.env.CLOUDINARY_NAME);
+console.log("Cloudinary API Key:", process.env.CLOUDINARY_API_KEY);
+console.log("Cloudinary API Secret:", process.env.CLOUDINARY_API_SECRET);
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_NAME,
