@@ -50,7 +50,10 @@ BookAction.post('/addbook', userAuth, seller, upload.single('book_image'), async
                     const uploadStream = cloudinary.uploader.upload_stream(
                         { folder: 'book_images' },
                         (error, result) => {
-                            if (error) return reject(error);
+                            if (error) {
+                                console.error('Cloudinary upload error:', error);
+                                return reject(error);
+                            }
                             resolve(result);
                         }
                     );
@@ -59,7 +62,7 @@ BookAction.post('/addbook', userAuth, seller, upload.single('book_image'), async
 
                 bookImageUrl = result.secure_url;
             } catch (error) {
-                return res.status(500).json({ message: 'Error uploading image to Cloudinary', error });
+                return res.status(500).json({ message: 'Error uploading image to Cloudinary', error: error.message });
             }
         }
 
@@ -96,6 +99,7 @@ BookAction.post('/addbook', userAuth, seller, upload.single('book_image'), async
         });
     }
 });
+
 
 // Edit an existing book
 BookAction.put('/editbook/:id', userAuth, seller, upload.single('book_image'), async (req, res) => {
